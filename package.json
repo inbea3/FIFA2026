@@ -2,11 +2,14 @@
   "name": "fifaweb",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "node server/index.js",
     "dev:client": "cd client && npm run dev",
-    "build": "cd client && npm run build",
+    "build": "npm ci --prefix client --include=dev && npm run build --prefix client",
     "start": "node server/index.js",
     "db:seed": "node scripts/seed-db.js"
   },

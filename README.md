@@ -94,6 +94,21 @@ npm start
 
 修改 `data/schedule.json` 后重新导入：`npm run db:seed`
 
+## Railway 部署
+
+1. 新建 Railway 项目，连接 GitHub 仓库
+2. 在 **Variables** 中配置：
+   - `DATABASE_URL` — Neon PostgreSQL 连接串
+   - `JWT_SECRET` — 随机密钥
+   - `PORT` — 通常由 Railway 自动注入，无需手动设置
+3. 首次部署成功后，在 Railway Shell 或本地执行一次：
+   ```bash
+   npm run db:seed
+   ```
+4. Railway 会自动执行 `npm ci` → `npm run build`（含前端依赖安装与打包）→ `npm start`
+
+> `build` 脚本会先安装 `client` 的 devDependencies（TypeScript、Vite），再打包前端。
+
 ## 免责声明
 
 本项目仅供个人模拟体验，非真实博彩，请勿用于任何商业或违法用途。
