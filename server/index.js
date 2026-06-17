@@ -8,6 +8,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const { initSchema } = require('./db');
 const store = require('./store');
 const { loadSchedule, settlePendingBets, isMarketOpen, enrichMatches, getMarketInfo, sortByKickoff, enrichKickoffFields } = require('./schedule');
+const { syncResultsFromExternal, startResultsSyncScheduler } = require('./resultsSync');
 const { attachOdds, buildRankMap } = require('./odds');
 
 const app = express();
@@ -232,7 +233,16 @@ async function start() {
     process.exit(1);
   }
   await initSchema();
-  await settlePendingBets();
+  try {
+    const sync = await syncResultsFromExternal();
+    console.log(
+      `赛果同步: 更新 ${sync.updated} 场，结算 ${sync.settledBets} 注，外部已完赛 ${sync.externalFinished} 场`
+    );
+  } catch (error) {
+    console.error('启动赛果同步失败:', error.message);
+    await settlePendingBets();
+  }
+  startResultsSyncScheduler();
   app.listen(PORT, () => {
     console.log(`FIFAweb server http://localhost:${PORT} (Neon PostgreSQL)`);
   });
