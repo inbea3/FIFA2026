@@ -27,14 +27,16 @@ function getCnParts(date) {
     month: '2-digit',
     day: '2-digit',
   }).format(d);
-  const hour = parseInt(
+  // hourCycle: 'h23' 避免 Linux/Railway 上午夜被格式化为 24 点导致销售日判断失败
+  let hour = parseInt(
     new Intl.DateTimeFormat('en-US', {
       timeZone: TZ,
       hour: 'numeric',
-      hour12: false,
+      hourCycle: 'h23',
     }).format(d),
     10
   );
+  if (hour === 24) hour = 0;
   return { date: dateStr, hour };
 }
 
