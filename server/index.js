@@ -18,7 +18,8 @@ const {
   enrichKickoffFields,
 } = require('./schedule');
 const { syncResultsFromExternal, startResultsSyncScheduler } = require('./resultsSync');
-const { attachOdds, buildRankMap } = require('./odds');
+const { syncOddsFromSporttery, startOddsSyncScheduler } = require('./oddsSync');
+const { attachOdds, buildRankMap, loadOddsMap } = require('./odds');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -118,10 +119,11 @@ app.get(
     await settlePendingBets();
     const schedule = await loadSchedule();
     const rankMap = buildRankMap(schedule.teams);
+    const oddsMap = await loadOddsMap();
     const matches = sortByKickoff(
       schedule.matches.map((m) =>
         enrichKickoffFields({
-          ...attachOdds(m, rankMap),
+          ...attachOdds(m, rankMap, oddsMap),
           marketOpen: isMarketOpen(m),
         })
       )
@@ -154,7 +156,9 @@ app.post(
     if (blockReason) return res.status(400).json({ error: blockReason });
 
     const rankMap = buildRankMap(schedule.teams);
-    const enriched = attachOdds(match, rankMap);
+    const oddsMap = await loadOddsMap();
+    const enriched = attachOdds(match, rankMap, oddsMap);
+    if (!enriched.odds) return res.status(400).json({ error: '该场暂无赔率' });
     const oddsBlock = betType === 'wdl' ? enriched.odds.wdl : enriched.odds.handicap;
     const odds = oddsBlock[selection];
     const handicap = betType === 'handicap' ? enriched.odds.handicap.line : null;
@@ -252,7 +256,14 @@ async function start() {
     console.error('启动赛果同步失败:', error.message);
     await settlePendingBets();
   }
+  try {
+    const oddsSync = await syncOddsFromSporttery();
+    console.log(`体彩赔率同步: 更新 ${oddsSync.updated} 场，体彩在售 ${oddsSync.externalTotal} 场`);
+  } catch (error) {
+    console.error('启动赔率同步失败:', error.message);
+  }
   startResultsSyncScheduler();
+  startOddsSyncScheduler();
   app.listen(PORT, () => {
     console.log(`FIFAweb server http://localhost:${PORT} (Neon PostgreSQL)`);
   });

@@ -1,6 +1,10 @@
 /**
- * 体彩风格固定赔率生成（参考竞彩 72% 返奖率、两位小数）
+ * 赔率：优先使用数据库中的体彩同步赔率，可选回退到模拟算法
  */
+
+const { pool } = require('./db');
+
+const FALLBACK_SIMULATE = process.env.ODDS_FALLBACK_SIMULATE !== 'false';
 
 const TEAM_ALIASES = {
   'Korea Republic': 'South Korea',
@@ -81,7 +85,7 @@ function handicapProbs(homeRank, awayRank, line) {
   return { home: pHome / total, draw: pDraw / total, away: pAway / total };
 }
 
-function attachOdds(match, rankMap) {
+function simulateOdds(match, rankMap) {
   const homeRank = rankMap[normalizeTeam(match.homeTeam)] ?? rankMap[match.homeTeam] ?? 50;
   const awayRank = rankMap[normalizeTeam(match.awayTeam)] ?? rankMap[match.awayTeam] ?? 50;
   const probs = impliedProbs(homeRank, awayRank);
@@ -91,23 +95,80 @@ function attachOdds(match, rankMap) {
   const hdl = probsToOdds(hProbs);
 
   return {
-    ...match,
-    odds: {
-      wdl: {
-        home: wdl.home,
-        draw: wdl.draw,
-        away: wdl.away,
-        labels: { home: '胜', draw: '平', away: '负' },
-      },
-      handicap: {
-        line: handicap,
-        lineLabel: handicap > 0 ? `+${handicap}` : `${handicap}`,
-        home: hdl.home,
-        draw: hdl.draw,
-        away: hdl.away,
-        labels: { home: '让胜', draw: '让平', away: '让负' },
-      },
+    wdl: {
+      home: wdl.home,
+      draw: wdl.draw,
+      away: wdl.away,
+      labels: { home: '胜', draw: '平', away: '负' },
     },
+    handicap: {
+      line: handicap,
+      lineLabel: handicap > 0 ? `+${handicap}` : `${handicap}`,
+      home: hdl.home,
+      draw: hdl.draw,
+      away: hdl.away,
+      labels: { home: '让胜', draw: '让平', away: '让负' },
+    },
+  };
+}
+
+function rowToOddsBlock(row) {
+  const odds = {
+    wdl: {
+      home: parseFloat(row.wdl_home),
+      draw: parseFloat(row.wdl_draw),
+      away: parseFloat(row.wdl_away),
+      labels: { home: '胜', draw: '平', away: '负' },
+    },
+  };
+
+  if (row.handicap_line != null && row.handicap_home != null) {
+    const line = parseFloat(row.handicap_line);
+    odds.handicap = {
+      line,
+      lineLabel: line > 0 ? `+${line}` : `${line}`,
+      home: parseFloat(row.handicap_home),
+      draw: parseFloat(row.handicap_draw),
+      away: parseFloat(row.handicap_away),
+      labels: { home: '让胜', draw: '让平', away: '让负' },
+    };
+  }
+
+  return odds;
+}
+
+let oddsCache = null;
+let oddsCacheAt = 0;
+const ODDS_CACHE_MS = 30 * 1000;
+
+async function loadOddsMap(force = false) {
+  const now = Date.now();
+  if (!force && oddsCache && now - oddsCacheAt < ODDS_CACHE_MS) {
+    return oddsCache;
+  }
+  const { rows } = await pool.query('SELECT * FROM match_odds');
+  oddsCache = Object.fromEntries(rows.map((r) => [r.match_number, rowToOddsBlock(r)]));
+  oddsCacheAt = now;
+  return oddsCache;
+}
+
+function invalidateOddsCache() {
+  oddsCache = null;
+  oddsCacheAt = 0;
+}
+
+function attachOdds(match, rankMap, oddsMap = {}) {
+  const real = oddsMap[match.matchNumber];
+  if (real) {
+    return { ...match, odds: real, oddsSource: 'sporttery' };
+  }
+  if (FALLBACK_SIMULATE && rankMap) {
+    return { ...match, odds: simulateOdds(match, rankMap), oddsSource: 'simulated' };
+  }
+  return {
+    ...match,
+    odds: null,
+    oddsSource: 'unavailable',
   };
 }
 
@@ -124,7 +185,10 @@ function settleHandicap(homeScore, awayScore, line, selection) {
 
 module.exports = {
   buildRankMap,
+  loadOddsMap,
+  invalidateOddsCache,
   attachOdds,
+  simulateOdds,
   settleWdl,
   settleHandicap,
 };

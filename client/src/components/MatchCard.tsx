@@ -142,10 +142,13 @@ export default function MatchCard({ match, selected, onSelect, index = 0, compac
           <span>{match.hostCityZh}</span>
           <span className="match-venue-sep">·</span>
           <span>{match.stadium}</span>
+          {match.oddsSource === 'sporttery' && (
+            <span className="odds-source-tag">体彩赔率</span>
+          )}
         </div>
       )}
 
-      {!compact && match.status === 'finished' ? null : canBet ? (
+      {!compact && match.status === 'finished' ? null : canBet && match.odds ? (
         <>
           <OddsButtons
             title="胜平负"
@@ -167,6 +170,8 @@ export default function MatchCard({ match, selected, onSelect, index = 0, compac
             onSelect={onSelect}
           />
         </>
+      ) : !compact && match.status !== 'finished' && !match.odds ? (
+        <div className="match-closed">暂无赔率数据，请稍后刷新</div>
       ) : !compact && match.status !== 'finished' ? (
         <div className="match-closed">{closedMsg}</div>
       ) : null}

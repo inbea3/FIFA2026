@@ -1,5 +1,5 @@
 const { pool } = require('./db');
-const { attachOdds, buildRankMap, settleWdl, settleHandicap } = require('./odds');
+const { attachOdds, buildRankMap, settleWdl, settleHandicap, loadOddsMap } = require('./odds');
 const store = require('./store');
 
 const TZ = 'Asia/Shanghai';
@@ -251,8 +251,9 @@ function getMarketInfo(now = new Date()) {
 
 async function enrichMatches(schedule, filterOpen = false) {
   const rankMap = buildRankMap(schedule.teams);
+  const oddsMap = await loadOddsMap();
   const now = new Date();
-  let matches = schedule.matches.map((m) => enrichKickoffFields(attachOdds(m, rankMap)));
+  let matches = schedule.matches.map((m) => enrichKickoffFields(attachOdds(m, rankMap, oddsMap)));
 
   if (filterOpen) {
     matches = matches

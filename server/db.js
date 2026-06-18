@@ -101,6 +101,20 @@ async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(match_date);
     CREATE INDEX IF NOT EXISTS idx_bets_user ON bets(user_id);
     CREATE INDEX IF NOT EXISTS idx_bets_status ON bets(status);
+
+    CREATE TABLE IF NOT EXISTS match_odds (
+      match_number INT PRIMARY KEY REFERENCES matches(match_number) ON DELETE CASCADE,
+      wdl_home NUMERIC(8, 2) NOT NULL,
+      wdl_draw NUMERIC(8, 2) NOT NULL,
+      wdl_away NUMERIC(8, 2) NOT NULL,
+      handicap_line NUMERIC(4, 1),
+      handicap_home NUMERIC(8, 2),
+      handicap_draw NUMERIC(8, 2),
+      handicap_away NUMERIC(8, 2),
+      sporttery_match_id BIGINT,
+      source TEXT NOT NULL DEFAULT 'sporttery',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }
 

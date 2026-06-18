@@ -88,11 +88,28 @@ npm start
 | `teams` | 48 支球队 |
 | `venues` | 16 座球场 |
 | `matches` | 72 场小组赛 |
+| `match_odds` | 体彩同步赔率（胜平负、让球） |
 | `users` | 用户账户 |
 | `bets` | 投注记录 |
 | `transactions` | 资金流水 |
 
 修改 `data/schedule.json` 后重新导入：`npm run db:seed`
+
+### 体彩赔率同步
+
+服务启动时会从体彩竞彩足球接口拉取赔率，并**每小时**自动同步一次。也可手动执行：
+
+```bash
+npm run db:sync-odds
+```
+
+| 环境变量 | 说明 |
+|---|---|
+| `ODDS_SYNC_URL` | 体彩计算器接口（默认已配置） |
+| `ODDS_SYNC_INTERVAL_MS` | 同步间隔，默认 3600000（1 小时） |
+| `ODDS_FALLBACK_SIMULATE` | 设为 `false` 时，未同步到场次不显示模拟赔率 |
+
+匹配规则：主队中文 + 客队中文 + 北京时间日期。前端已同步场次会显示「体彩赔率」标签。
 
 ## Railway 部署
 
@@ -100,6 +117,7 @@ npm start
 2. 在 **Variables** 中配置：
    - `DATABASE_URL` — Neon PostgreSQL 连接串
    - `JWT_SECRET` — 随机密钥
+   - `ODDS_FALLBACK_SIMULATE` — 建议 `false`，仅展示真实体彩赔率
    - `PORT` — 通常由 Railway 自动注入，无需手动设置
 3. 首次部署成功后，在 Railway Shell 或本地执行一次：
    ```bash

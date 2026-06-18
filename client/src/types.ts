@@ -32,6 +32,7 @@ export interface Match {
   stadium: string;
   hostCityZh: string;
   odds: MatchOdds;
+  oddsSource?: 'sporttery' | 'simulated' | 'unavailable';
   kickoffCnDate?: string;
   kickoffCnTime?: string;
   kickoffCnMs?: number;
