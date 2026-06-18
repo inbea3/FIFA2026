@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import AppMotto from './AppMotto';
 
 const FEATURES = ['胜平负 / 让球', '1000 梅罗开户', '模拟竞猜体验'];
 
@@ -49,6 +50,7 @@ export default function AuthPage() {
           <p className="subtitle">
             2026 美加墨世界杯 · 模拟竞猜
           </p>
+          <AppMotto variant="auth" />
         </div>
 
         <div className="auth-features">

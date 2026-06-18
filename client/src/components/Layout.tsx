@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AppMotto from './AppMotto';
 
 const TABS = [
   { to: '/', tab: 'today', icon: '⚡', label: '今日开盘' },
@@ -48,6 +49,8 @@ export default function Layout({
           </Link>
         ))}
       </nav>
+
+      <AppMotto />
 
       <main className="page-content">{children}</main>
     </div>
