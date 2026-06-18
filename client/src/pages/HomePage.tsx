@@ -13,6 +13,7 @@ import type { Match, BetSelection } from '../types';
 export default function HomePage() {
   const { refresh } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
+  const [openCount, setOpenCount] = useState(0);
   const [marketLabel, setMarketLabel] = useState('');
   const [loading, setLoading] = useState(true);
   const [selection, setSelection] = useState<BetSelection | null>(null);
@@ -25,6 +26,7 @@ export default function HomePage() {
     try {
       const data = await api.todayMatches();
       setMatches(data.matches);
+      setOpenCount(data.count);
       setMarketLabel(data.label || data.salesDate);
     } finally {
       setLoading(false);
@@ -63,7 +65,7 @@ export default function HomePage() {
         <PageHeader
           title="今日开盘"
           subtitle={marketLabel || '竞彩销售日：当日场次 + 次日凌晨/上午场（北京时间）'}
-          badge={loading ? undefined : `${matches.length} 场可投`}
+          badge={loading ? undefined : `${openCount} 场可投`}
         />
 
         {msg && (

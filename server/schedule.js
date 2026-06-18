@@ -3,6 +3,8 @@ const { attachOdds, buildRankMap, settleWdl, settleHandicap } = require('./odds'
 const store = require('./store');
 
 const TZ = 'Asia/Shanghai';
+/** 开赛前多久停止投注（毫秒） */
+const BET_CLOSE_BEFORE_MS = 60 * 60 * 1000;
 
 function formatDateOnly(value) {
   if (!value) return null;
@@ -199,14 +201,8 @@ async function settlePendingBets() {
   }
 }
 
-/**
- * 是否可投注：仅比赛开始后（status 非 scheduled）封盘
- * filterToday 为 true 时，额外按竞彩销售日筛选可见场次
- */
-function isMarketOpen(match, now = new Date(), filterToday = false) {
-  if (match.status !== 'scheduled') return false;
-  if (!filterToday) return true;
-
+/** 是否属于今日销售日可见场次（北京时间） */
+function isOnSalesDay(match, now = new Date()) {
   const kickoff = new Date(match.kickoffUtc);
   const { date: nowCn } = getCnParts(now);
   const { date: kickCn, hour: kickCnHour } = getCnParts(kickoff);
@@ -215,6 +211,29 @@ function isMarketOpen(match, now = new Date(), filterToday = false) {
   if (kickCn === nowCn) return true;
   if (kickCn === tomorrowCn && kickCnHour < 14) return true;
   return false;
+}
+
+/** 当前是否尚未到达「开赛前 1 小时」封盘时点 */
+function isBeforeBetClose(match, now = new Date()) {
+  const kickoffMs = kickoffTimestamp(match);
+  return now.getTime() < kickoffMs - BET_CLOSE_BEFORE_MS;
+}
+
+/**
+ * 是否可投注：scheduled + 未到开赛前1小时；filterToday 为 true 时还需在销售日内
+ */
+function isMarketOpen(match, now = new Date(), filterToday = false) {
+  if (match.status !== 'scheduled') return false;
+  if (!isBeforeBetClose(match, now)) return false;
+  if (filterToday && !isOnSalesDay(match, now)) return false;
+  return true;
+}
+
+function getBetBlockReason(match, now = new Date()) {
+  if (match.status !== 'scheduled') return '比赛已开始，已封盘';
+  if (!isBeforeBetClose(match, now)) return '开赛前1小时已封盘';
+  if (!isOnSalesDay(match, now)) return '该场未开盘';
+  return null;
 }
 
 function getMarketInfo(now = new Date()) {
@@ -234,7 +253,9 @@ async function enrichMatches(schedule, filterOpen = false) {
   let matches = schedule.matches.map((m) => enrichKickoffFields(attachOdds(m, rankMap)));
 
   if (filterOpen) {
-    matches = matches.filter((m) => isMarketOpen(m, now, true));
+    matches = matches
+      .filter((m) => m.status === 'scheduled' && isOnSalesDay(m, now))
+      .map((m) => ({ ...m, marketOpen: isMarketOpen(m, now, false) }));
   }
 
   return sortByKickoff(matches);
@@ -245,6 +266,9 @@ module.exports = {
   loadMatches,
   settlePendingBets,
   isMarketOpen,
+  isOnSalesDay,
+  isBeforeBetClose,
+  getBetBlockReason,
   enrichMatches,
   getMarketInfo,
   getCnParts,

@@ -7,7 +7,16 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const { initSchema } = require('./db');
 const store = require('./store');
-const { loadSchedule, settlePendingBets, isMarketOpen, enrichMatches, getMarketInfo, sortByKickoff, enrichKickoffFields } = require('./schedule');
+const {
+  loadSchedule,
+  settlePendingBets,
+  isMarketOpen,
+  getBetBlockReason,
+  enrichMatches,
+  getMarketInfo,
+  sortByKickoff,
+  enrichKickoffFields,
+} = require('./schedule');
 const { syncResultsFromExternal, startResultsSyncScheduler } = require('./resultsSync');
 const { attachOdds, buildRankMap } = require('./odds');
 
@@ -95,9 +104,10 @@ app.get(
   wrap(async (req, res) => {
     await settlePendingBets();
     const schedule = await loadSchedule();
-    const open = await enrichMatches(schedule, true);
+    const todayMatches = await enrichMatches(schedule, true);
     const market = getMarketInfo();
-    res.json({ ...market, matches: open, count: open.length });
+    const openCount = todayMatches.filter((m) => m.marketOpen).length;
+    res.json({ ...market, matches: todayMatches, count: openCount, total: todayMatches.length });
   })
 );
 
@@ -140,8 +150,8 @@ app.post(
     const schedule = await loadSchedule();
     const match = schedule.matches.find((m) => m.matchNumber === Number(matchNumber));
     if (!match) return res.status(404).json({ error: '比赛不存在' });
-    if (match.status !== 'scheduled') return res.status(400).json({ error: '比赛已开始，已封盘' });
-    if (!isMarketOpen(match, new Date(), true)) return res.status(400).json({ error: '该场未开盘' });
+    const blockReason = getBetBlockReason(match, new Date());
+    if (blockReason) return res.status(400).json({ error: blockReason });
 
     const rankMap = buildRankMap(schedule.teams);
     const enriched = attachOdds(match, rankMap);

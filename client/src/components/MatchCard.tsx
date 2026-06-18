@@ -71,9 +71,12 @@ function OddsButtons({
   );
 }
 
-function statusMeta(status: string) {
-  if (status === 'finished') return { label: '已完赛', className: 'status-done' };
-  if (status === 'scheduled') return { label: '可投注', className: 'status-open' };
+function statusMeta(match: Match) {
+  if (match.status === 'finished') return { label: '已完赛', className: 'status-done' };
+  if (match.status === 'scheduled' && match.marketOpen !== false) {
+    return { label: '可投注', className: 'status-open' };
+  }
+  if (match.status === 'scheduled') return { label: '已封盘', className: 'status-closed' };
   return { label: '已封盘', className: 'status-closed' };
 }
 
@@ -86,8 +89,10 @@ export default function MatchCard({ match, selected, onSelect, index = 0, compac
     minute: '2-digit',
     hour12: false,
   });
-  const canBet = match.status === 'scheduled';
-  const status = statusMeta(match.status);
+  const canBet = match.status === 'scheduled' && match.marketOpen !== false;
+  const status = statusMeta(match);
+  const closedMsg =
+    match.status !== 'scheduled' ? '比赛已开始，已封盘' : '开赛前1小时已封盘，停止投注';
 
   return (
     <motion.div
@@ -163,7 +168,7 @@ export default function MatchCard({ match, selected, onSelect, index = 0, compac
           />
         </>
       ) : !compact && match.status !== 'finished' ? (
-        <div className="match-closed">比赛已开始，已封盘</div>
+        <div className="match-closed">{closedMsg}</div>
       ) : null}
     </motion.div>
   );
